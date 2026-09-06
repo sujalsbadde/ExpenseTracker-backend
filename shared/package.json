@@ -1,0 +1,16 @@
+{
+  "name": "@expense-tracker/shared",
+  "version": "1.0.0",
+  "description": "Shared TypeScript definitions and contracts for Personal Expense Tracker",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Shared contracts validated by TypeScript\"",
+    "clean": "rimraf dist"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,165 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BudgetPeriod {
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum RecurrenceFrequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  passwordHash   String
+  name           String
+  role           Role            @default(USER)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  expenses       Expense[]
+  categories     Category[]
+  budgets        Budget[]
+  refreshTokens  RefreshToken[]
+  recurringRules RecurringRule[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Category {
+  id             String          @id @default(uuid())
+  name           String
+  icon           String?
+  color          String?
+  isDefault      Boolean         @default(false)
+  userId         String?
+  user           User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  expenses       Expense[]
+  budgets        Budget[]
+  recurringRules RecurringRule[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("categories")
+}
+
+model RecurringRule {
+  id                String              @id @default(uuid())
+  amount            Int                 // Stored in integer cents
+  description       String
+  frequency         RecurrenceFrequency @default(MONTHLY)
+  interval          Int                 @default(1) // Every N weeks/months/years
+  startDate         DateTime
+  endDate           DateTime?
+  nextDueDate       DateTime
+  lastGeneratedDate DateTime?
+  isActive          Boolean             @default(true)
+  paymentMethod     PaymentMethod       @default(CREDIT_CARD)
+  notes             String?
+
+  userId            String
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  categoryId        String
+  category          Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  expenses          Expense[]
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([isActive, nextDueDate])
+  @@map("recurring_rules")
+}
+
+model Expense {
+  id              String         @id @default(uuid())
+  amount          Int            // Stored in integer cents
+  description     String
+  date            DateTime       @default(now())
+  paymentMethod   PaymentMethod  @default(CREDIT_CARD)
+  isRecurring     Boolean        @default(false)
+  receiptUrl      String?
+  notes           String?
+  
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  categoryId      String
+  category        Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  recurringRuleId String?
+  recurringRule   RecurringRule? @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([userId, date])
+  @@index([userId, categoryId])
+  @@index([userId, amount])
+  @@index([recurringRuleId])
+  @@map("expenses")
+}
+
+model Budget {
+  id          String       @id @default(uuid())
+  amount      Int
+  period      BudgetPeriod @default(MONTHLY)
+  startDate   DateTime
+  endDate     DateTime
+  
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  categoryId  String?
+  category    Category?    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([userId, categoryId, period, startDate])
+  @@index([userId])
+  @@map("budgets")
+}
